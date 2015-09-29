@@ -1,6 +1,7 @@
 package com.quixom.musixom;
 
 import android.app.Activity;
+import android.content.ContentUris;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.MediaStore;
@@ -9,6 +10,8 @@ import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.os.Bundle;
 import android.support.v7.app.ActionBarActivity;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -17,11 +20,21 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.support.v4.widget.DrawerLayout;
 
+import com.quixom.musixom.adapter.MusicListAdapter;
+import com.quixom.musixom.util.Music;
+
+import java.util.ArrayList;
+import java.util.List;
+
 
 public class MostPlayed extends ActionBarActivity
         implements NavigationDrawerFragment.NavigationDrawerCallbacks {
 
     public static String TAG = "musixom";
+    ArrayList<Music> displayList;
+    RecyclerView mRecyclerView;
+    RecyclerView.LayoutManager mLayoutManager;
+    RecyclerView.Adapter mAdapter;
     private NavigationDrawerFragment mNavigationDrawerFragment;
     private CharSequence mTitle;
 
@@ -29,6 +42,14 @@ public class MostPlayed extends ActionBarActivity
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_most_played);
+
+        mRecyclerView = (RecyclerView)findViewById(R.id.recycler_view);
+        mRecyclerView.setHasFixedSize(true);
+        mLayoutManager = new LinearLayoutManager(this);
+        mRecyclerView.setLayoutManager(mLayoutManager);
+
+
+        displayList = new ArrayList<Music>();
 
         mNavigationDrawerFragment = (NavigationDrawerFragment)
                 getSupportFragmentManager().findFragmentById(R.id.navigation_drawer);
@@ -47,7 +68,9 @@ public class MostPlayed extends ActionBarActivity
                 MediaStore.Audio.Media.ARTIST, MediaStore.Audio.Media.TITLE,
                 MediaStore.Audio.Media.DATA, MediaStore.Audio.Media.DISPLAY_NAME,
                 MediaStore.Audio.Media.DURATION, MediaStore.Audio.Media.ALBUM_ID,
-                MediaStore.Audio.Media.DATE_ADDED, MediaStore.Images.Media._ID};
+                MediaStore.Audio.Media.DATE_ADDED, MediaStore.Images.Media._ID,
+                MediaStore.Audio.Albums._ID};
+
         String selection = MediaStore.Audio.Media.IS_MUSIC + " != 0";
         Cursor mCursor = getContentResolver().query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, projection, selection, null, MediaStore.Audio.Media.DATE_ADDED);
         Log.e(TAG, "cursor: " + mCursor.getCount());
@@ -56,18 +79,31 @@ public class MostPlayed extends ActionBarActivity
             if (mCursor.getCount() != 0) {
                 if (mCursor.moveToFirst()) {
                     do {
-                        String duration = mCursor.getString(mCursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION));
-                        String displayName = mCursor.getString(mCursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME));
+                        String trackDuration = mCursor.getString(mCursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION));
+                        String trackTitle = mCursor.getString(mCursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME));
                         String addedTime = mCursor.getString(mCursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED));
-                        String imagePath = mCursor.getString(mCursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID));
+                        Long albumId = mCursor.getLong(mCursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID));
+                        String trackArtist = mCursor.getString(mCursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST));
 
                         java.util.Date dateTime = new java.util.Date(Long.valueOf(addedTime) * 1000);
 
-                        Log.e(TAG, "name:" + duration);
-                        Log.e(TAG, "displayName :" + displayName);
+                        Music music = new Music();
+                        music.setTrackTitle(trackTitle);
+                        music.setTrackArtist(trackArtist);
+                        displayList.add(music);
+                        Log.e(TAG, "displayName :" + trackTitle);
+                        Log.e(TAG , "artist: " + trackArtist);
+                        /*Log.e(TAG, "name:" + trackDuration);
+                        Log.e(TAG, "displayName :" + trackTitle);
                         Log.e(TAG, "addedTime: " + dateTime);
-                        Log.e(TAG, "image path : " + imagePath);
+                        Log.e(TAG, "image path : " + albumId);
+                        Log.e(TAG , "artist: " + trackArtist);
 
+                        Uri sArtworkUri = Uri.parse("content://media/external/audio/albumart");
+                        Uri albumArtUri = ContentUris.withAppendedId(sArtworkUri, albumId);
+
+                        Log.e(TAG, "albumArtUri: " + albumArtUri);
+*/
                     } while (mCursor.moveToNext());
                 }
                 mCursor.close();
@@ -75,11 +111,12 @@ public class MostPlayed extends ActionBarActivity
         } catch (Exception e) {
             e.printStackTrace();
         }
+        mAdapter = new MusicListAdapter(displayList);
+        mRecyclerView.setAdapter(mAdapter);
     }
 
     @Override
     public void onNavigationDrawerItemSelected(int position) {
-        // update the main content by replacing fragments
         FragmentManager fragmentManager = getSupportFragmentManager();
         fragmentManager.beginTransaction()
                 .replace(R.id.container, PlaceholderFragment.newInstance(position + 1))
