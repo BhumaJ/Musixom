@@ -1,29 +1,53 @@
 <android.support.v4.widget.DrawerLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/drawer_layout"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    tools:context=".MostPlayed">
+    android:layout_height="match_parent">
 
-    <FrameLayout
-        android:id="@+id/container"
+    <com.sothree.slidinguppanel.SlidingUpPanelLayout xmlns:sothree="http://schemas.android.com/apk/res-auto"
+        android:id="@+id/bottom_panel"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:gravity="bottom"
+        sothree:umanoDragView="@+id/dragView"
+        sothree:umanoParalaxOffset="10dp">
 
-          <android.support.v7.widget.RecyclerView
-              android:id="@+id/recycler_view"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent">
-              </android.support.v7.widget.RecyclerView>
 
-    </FrameLayout>
+        <FrameLayout
+            android:id="@+id/content_frame"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
 
-    <fragment
-        android:id="@+id/navigation_drawer"
-        android:name="com.quixom.musixom.NavigationDrawerFragment"
-        android:layout_width="@dimen/navigation_drawer_width"
+        </FrameLayout>
+        <RelativeLayout
+            android:id="@+id/panel"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="?android:attr/actionBarSize"
+                android:background="#00FF00"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="#0000FF"
+                    android:text="This is simple text" />
+            </LinearLayout>
+
+        </RelativeLayout>
+    </com.sothree.slidinguppanel.SlidingUpPanelLayout>
+
+    <ListView
+        android:id="@+id/left_drawer"
+        android:layout_width="240dp"
         android:layout_height="match_parent"
         android:layout_gravity="start"
-        tools:layout="@layout/fragment_navigation_drawer" />
+        android:background="#111"
+        android:choiceMode="singleChoice"
+        android:divider="@android:color/transparent"
+        android:dividerHeight="0dp" />
+
 
 </android.support.v4.widget.DrawerLayout>

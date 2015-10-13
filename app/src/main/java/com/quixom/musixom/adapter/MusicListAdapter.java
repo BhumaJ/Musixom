@@ -1,12 +1,16 @@
 package com.quixom.musixom.adapter;
 
+import android.content.Context;
+import android.media.MediaMetadataRetriever;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.bumptech.glide.Glide;
 import com.quixom.musixom.R;
 import com.quixom.musixom.util.Music;
 
@@ -19,9 +23,13 @@ import java.util.List;
 public class MusicListAdapter extends RecyclerView.Adapter<MusicListAdapter.ViewHolder> {
 
     ArrayList<Music> playlist;
+    Context adapterContext;
+    MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+    String TAG = "musixom";
 
-    public MusicListAdapter(ArrayList<Music> list) {
+    public MusicListAdapter(ArrayList<Music> list, Context context) {
         this.playlist = list;
+        this.adapterContext = context;
     }
 
     @Override
@@ -36,6 +44,16 @@ public class MusicListAdapter extends RecyclerView.Adapter<MusicListAdapter.View
         Music music = playlist.get(position);
         holder.trackTitle.setText(music.getTrackTitle());
         holder.trackArtistName.setText(music.getTrackArtist());
+
+        retriever.setDataSource(adapterContext, music.getTrackUri());
+        byte coverArt[] = retriever.getEmbeddedPicture();
+        Glide.with(adapterContext)
+                .load(coverArt)
+                .centerCrop()
+                .placeholder(R.drawable.music_note)
+                .override(100, 100)
+                .error(R.drawable.music_note)
+                .into(holder.trackCoverArt);
     }
 
     @Override

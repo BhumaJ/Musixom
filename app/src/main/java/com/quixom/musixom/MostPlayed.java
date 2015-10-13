@@ -1,67 +1,53 @@
 package com.quixom.musixom;
 
-import android.app.Activity;
-import android.content.ContentUris;
+import android.app.Fragment;
+import android.app.SearchManager;
+import android.content.Context;
+import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
+import android.provider.CallLog;
 import android.provider.MediaStore;
-import android.support.v7.app.ActionBar;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentManager;
+import android.support.v4.app.ActionBarDrawerToggle;
 import android.os.Bundle;
-import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.ActionBar;
+import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
 import android.support.v4.widget.DrawerLayout;
+import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.ListView;
 
 import com.quixom.musixom.adapter.MusicListAdapter;
 import com.quixom.musixom.util.Music;
+import com.sothree.slidinguppanel.SlidingUpPanelLayout;
 
 import java.util.ArrayList;
-import java.util.List;
 
 
-public class MostPlayed extends ActionBarActivity
-        implements NavigationDrawerFragment.NavigationDrawerCallbacks {
+public class MostPlayed extends AppCompatActivity {
 
     public static String TAG = "musixom";
-    ArrayList<Music> displayList;
-    RecyclerView mRecyclerView;
-    RecyclerView.LayoutManager mLayoutManager;
-    RecyclerView.Adapter mAdapter;
-    private NavigationDrawerFragment mNavigationDrawerFragment;
+    static ArrayList<Music> displayList;
+
+    ActionBar actionBar;
+    private DrawerLayout mDrawerLayout;
+    private ListView mDrawerList;
+    private ActionBarDrawerToggle mDrawerToggle;
+    private CharSequence mDrawerTitle;
     private CharSequence mTitle;
+    private SlidingUpPanelLayout mLayout;
+    private String[] mNavigationTitles;
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_most_played);
-
-        mRecyclerView = (RecyclerView)findViewById(R.id.recycler_view);
-        mRecyclerView.setHasFixedSize(true);
-        mLayoutManager = new LinearLayoutManager(this);
-        mRecyclerView.setLayoutManager(mLayoutManager);
-
-
-        displayList = new ArrayList<Music>();
-
-        mNavigationDrawerFragment = (NavigationDrawerFragment)
-                getSupportFragmentManager().findFragmentById(R.id.navigation_drawer);
-        mTitle = getTitle();
-
-        mNavigationDrawerFragment.setUp(
-                R.id.navigation_drawer,
-                (DrawerLayout) findViewById(R.id.drawer_layout));
-        getAllSongs();
-    }
-
-    private void getAllSongs() {
+    private static void getAllSongs(Context context) {
 
         Uri allSongUri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
         String[] projection = {MediaStore.Audio.Media._ID,
@@ -72,8 +58,7 @@ public class MostPlayed extends ActionBarActivity
                 MediaStore.Audio.Albums._ID};
 
         String selection = MediaStore.Audio.Media.IS_MUSIC + " != 0";
-        Cursor mCursor = getContentResolver().query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, projection, selection, null, MediaStore.Audio.Media.DATE_ADDED);
-        Log.e(TAG, "cursor: " + mCursor.getCount());
+        Cursor mCursor = context.getContentResolver().query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, projection, selection, null, MediaStore.Audio.Media.DATE_ADDED);
 
         try {
             if (mCursor.getCount() != 0) {
@@ -84,26 +69,16 @@ public class MostPlayed extends ActionBarActivity
                         String addedTime = mCursor.getString(mCursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED));
                         Long albumId = mCursor.getLong(mCursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID));
                         String trackArtist = mCursor.getString(mCursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST));
-
+                        String data = mCursor.getString(mCursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA));
                         java.util.Date dateTime = new java.util.Date(Long.valueOf(addedTime) * 1000);
 
                         Music music = new Music();
                         music.setTrackTitle(trackTitle);
                         music.setTrackArtist(trackArtist);
+                        music.setTrackUri(Uri.parse(data));
+
                         displayList.add(music);
-                        Log.e(TAG, "displayName :" + trackTitle);
-                        Log.e(TAG , "artist: " + trackArtist);
-                        /*Log.e(TAG, "name:" + trackDuration);
-                        Log.e(TAG, "displayName :" + trackTitle);
-                        Log.e(TAG, "addedTime: " + dateTime);
-                        Log.e(TAG, "image path : " + albumId);
-                        Log.e(TAG , "artist: " + trackArtist);
 
-                        Uri sArtworkUri = Uri.parse("content://media/external/audio/albumart");
-                        Uri albumArtUri = ContentUris.withAppendedId(sArtworkUri, albumId);
-
-                        Log.e(TAG, "albumArtUri: " + albumArtUri);
-*/
                     } while (mCursor.moveToNext());
                 }
                 mCursor.close();
@@ -111,106 +86,181 @@ public class MostPlayed extends ActionBarActivity
         } catch (Exception e) {
             e.printStackTrace();
         }
-        mAdapter = new MusicListAdapter(displayList);
-        mRecyclerView.setAdapter(mAdapter);
+
+        getCallLog(context);
+    }
+
+    private static void getCallLog(Context context) {
+        int mNewMissedCallCount, mUnreadMissedCallCount;
+
+        String newWhere = CallLog.Calls.TYPE + "=" + CallLog.Calls.MISSED_TYPE + " AND " + CallLog.Calls.NEW + "=1";
+        String[] newProjection = {CallLog.Calls.CACHED_NAME, CallLog.Calls.CACHED_NUMBER_LABEL, CallLog.Calls.TYPE};
+        Cursor newCursor = context.getContentResolver().query(CallLog.Calls.CONTENT_URI, newProjection, newWhere, null, null);
+        mNewMissedCallCount = newCursor.getCount();
+        newCursor.close();
+        String selection = CallLog.Calls.TYPE + "=" + CallLog.Calls.MISSED_TYPE + " AND " + CallLog.Calls.NEW + " =1 " + " AND " + CallLog.Calls.IS_READ + " =0 ";
+        String[] unreadProjection = {CallLog.Calls.CACHED_NAME, CallLog.Calls.CACHED_NUMBER_LABEL, CallLog.Calls.TYPE};
+        Cursor unreadCursor = context.getContentResolver().query(CallLog.Calls.CONTENT_URI, unreadProjection, selection, null, null);
+        mUnreadMissedCallCount = unreadCursor.getCount();
+        unreadCursor.close();
+        Log.e(TAG, " selection : " + selection);
+        Log.e(TAG, "mNew       " + mNewMissedCallCount);
+        Log.e(TAG, "mUnreadMissed:      " + mUnreadMissedCallCount);
     }
 
     @Override
-    public void onNavigationDrawerItemSelected(int position) {
-        FragmentManager fragmentManager = getSupportFragmentManager();
-        fragmentManager.beginTransaction()
-                .replace(R.id.container, PlaceholderFragment.newInstance(position + 1))
-                .commit();
-    }
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_most_played);
 
-    public void onSectionAttached(int number) {
-        switch (number) {
-            case 1:
-                mTitle = getString(R.string.title_section1);
-                break;
-            case 2:
-                mTitle = getString(R.string.title_section2);
-                break;
-            case 3:
-                mTitle = getString(R.string.title_section3);
-                break;
+        actionBar = getSupportActionBar();
+
+        mTitle = mDrawerTitle = getTitle();
+        mNavigationTitles = getResources().getStringArray(R.array.navigation_items);
+        mDrawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
+        mDrawerList = (ListView) findViewById(R.id.left_drawer);
+
+        mDrawerList.setAdapter(new ArrayAdapter<String>(this, R.layout.drawer_list_item, mNavigationTitles));
+        mDrawerList.setOnItemClickListener(new DrawerItemClickListener());
+
+
+        actionBar.setDisplayHomeAsUpEnabled(true);
+        actionBar.setHomeButtonEnabled(true);
+
+        mDrawerToggle = new ActionBarDrawerToggle(this,
+                mDrawerLayout,
+                R.drawable.ic_drawer,
+                R.string.navigation_drawer_open,
+                R.string.navigation_drawer_close) {
+            public void onDrawerClosed(View view) {
+                actionBar.setTitle(mTitle);
+                invalidateOptionsMenu(); // creates call to onPrepareOptionsMenu()
+            }
+
+            public void onDrawerOpened(View drawerView) {
+                actionBar.setTitle(mDrawerTitle);
+                invalidateOptionsMenu(); // creates call to onPrepareOptionsMenu()
+            }
+        };
+        mDrawerLayout.setDrawerListener(mDrawerToggle);
+        if (savedInstanceState == null) {
+            selectItem(0);
         }
-    }
 
-    public void restoreActionBar() {
-        ActionBar actionBar = getSupportActionBar();
-        actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_STANDARD);
-        actionBar.setDisplayShowTitleEnabled(true);
-        actionBar.setTitle(mTitle);
-    }
+        displayList = new ArrayList<Music>();
 
+        mLayout = (SlidingUpPanelLayout) findViewById(R.id.bottom_panel);
+
+        mLayout.setPanelSlideListener(new SlidingUpPanelLayout.PanelSlideListener() {
+            @Override
+            public void onPanelSlide(View view, float v) {
+            }
+
+            @Override
+            public void onPanelCollapsed(View view) {
+            }
+
+            @Override
+            public void onPanelExpanded(View view) {
+            }
+
+            @Override
+            public void onPanelAnchored(View view) {
+            }
+
+            @Override
+            public void onPanelHidden(View view) {
+            }
+        });
+
+    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        if (!mNavigationDrawerFragment.isDrawerOpen()) {
-            // Only show items in the action bar relevant to this screen
-            // if the drawer is not showing. Otherwise, let the drawer
-            // decide what to show in the action bar.
-            getMenuInflater().inflate(R.menu.most_played, menu);
-            restoreActionBar();
-            return true;
-        }
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.most_played, menu);
         return super.onCreateOptionsMenu(menu);
     }
 
     @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            return true;
-        }
-
-        return super.onOptionsItemSelected(item);
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        // If the nav drawer is open, hide action items related to the content view
+        boolean drawerOpen = mDrawerLayout.isDrawerOpen(mDrawerList);
+        menu.findItem(R.id.action_websearch).setVisible(!drawerOpen);
+        return super.onPrepareOptionsMenu(menu);
     }
 
-    /**
-     * A placeholder fragment containing a simple view.
-     */
-    public static class PlaceholderFragment extends Fragment {
-        /**
-         * The fragment argument representing the section number for this
-         * fragment.
-         */
-        private static final String ARG_SECTION_NUMBER = "section_number";
-
-        public PlaceholderFragment() {
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // The action bar home/up action should open or close the drawer.
+        // ActionBarDrawerToggle will take care of this.
+        if (mDrawerToggle.onOptionsItemSelected(item)) {
+            return true;
         }
+        // Handle action buttons
+        switch (item.getItemId()) {
+            case R.id.action_websearch:
+                Intent intent = new Intent(Intent.ACTION_WEB_SEARCH);
+                intent.putExtra(SearchManager.QUERY, actionBar.getTitle());
+                if (intent.resolveActivity(getPackageManager()) != null) {
+                    startActivity(intent);
+                }
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
 
-        /**
-         * Returns a new instance of this fragment for the given section
-         * number.
-         */
-        public static PlaceholderFragment newInstance(int sectionNumber) {
-            PlaceholderFragment fragment = new PlaceholderFragment();
-            Bundle args = new Bundle();
-            args.putInt(ARG_SECTION_NUMBER, sectionNumber);
-            fragment.setArguments(args);
-            return fragment;
+    private void selectItem(int position) {
+        // update the main content by replacing fragments
+        Fragment fragment = new PlanetFragment();
+        Bundle args = new Bundle();
+        args.putInt(PlanetFragment.ARG_PLANET_NUMBER, position);
+        fragment.setArguments(args);
+
+        android.app.FragmentManager fragmentManager = getFragmentManager();
+        fragmentManager.beginTransaction().replace(R.id.content_frame, fragment).commit();
+
+        mDrawerList.setItemChecked(position, true);
+        setTitle(mNavigationTitles[position]);
+        mDrawerLayout.closeDrawer(mDrawerList);
+    }
+
+    public static class PlanetFragment extends Fragment {
+        public static final String ARG_PLANET_NUMBER = "planet_number";
+
+        public PlanetFragment() {
+            // Empty constructor required for fragment subclasses
         }
 
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container,
                                  Bundle savedInstanceState) {
-            View rootView = inflater.inflate(R.layout.fragment_most_played, container, false);
-            return rootView;
-        }
 
-        @Override
-        public void onAttach(Activity activity) {
-            super.onAttach(activity);
-            ((MostPlayed) activity).onSectionAttached(
-                    getArguments().getInt(ARG_SECTION_NUMBER));
+            View rootView = inflater.inflate(R.layout.fragment_planet, container, false);
+            RecyclerView mRecyclerView;
+            RecyclerView.LayoutManager mLayoutManager;
+            RecyclerView.Adapter mAdapter;
+
+            mRecyclerView = (RecyclerView) rootView.findViewById(R.id.recycler_view);
+            mRecyclerView.setHasFixedSize(true);
+            mLayoutManager = new LinearLayoutManager(getActivity());
+            mRecyclerView.setLayoutManager(mLayoutManager);
+
+            getAllSongs(getActivity());
+
+            mAdapter = new MusicListAdapter(displayList, getActivity());
+            mRecyclerView.setAdapter(mAdapter);
+
+            return rootView;
+
         }
     }
 
+    private class DrawerItemClickListener implements ListView.OnItemClickListener {
+        @Override
+        public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+            selectItem(position);
+        }
+    }
 }

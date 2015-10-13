@@ -1,11 +1,22 @@
 package com.quixom.musixom.util;
 
+import android.net.Uri;
+
 /**
  * Created by Admin on 29-Sep-15.
  */
 public class Music {
 
     String trackTitle, trackArtist;
+    Uri trackUri;
+
+    public Uri getTrackUri() {
+        return trackUri;
+    }
+
+    public void setTrackUri(Uri trackUri) {
+        this.trackUri = trackUri;
+    }
 
     public String getTrackTitle() {
         return trackTitle;
